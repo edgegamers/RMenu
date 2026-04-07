@@ -28,6 +28,7 @@ public class MenuOptions {
   private int priority;
 
   private bool processInput = true;
+  private bool paginate;
 
   private MenuObject[] selector = [
     new("[ ", new MenuFormat(new Color().Rainbow())),
@@ -46,6 +47,7 @@ public class MenuOptions {
     displayItemsInHeader = source.displayItemsInHeader;
     exitable             = source.exitable;
     priority             = source.priority;
+    paginate             = source.paginate;
 
     buttons    = new MenuInput<MenuButton>();
     continuous = new MenuContinuous<MenuButton>();
@@ -166,6 +168,15 @@ public class MenuOptions {
       _         = options.Add(nameof(Priority));
     }
   }
+  
+  public bool Paginate {
+    get => paginate;
+    set {
+      paginate = value;
+      _         = options.Add(nameof(Paginate));
+      updateHtml();
+    }
+  }
 
   public MenuObject[] Cursor {
     get => cursor;
@@ -227,6 +238,8 @@ public class MenuOptions {
     if (overrides.isSet(nameof(Exitable))) Exitable = overrides.Exitable;
 
     if (overrides.isSet(nameof(Priority))) Priority = overrides.Priority;
+    
+    if (overrides.isSet(nameof(Paginate))) Paginate = overrides.Paginate;
 
     if (overrides.isSet(nameof(Buttons))) Buttons = overrides.Buttons;
 
@@ -255,6 +268,8 @@ public class MenuOptions {
 
     var availableHeight = Menu.MENU_HEIGHT
       - ((int)HeaderFontSize + (int)FooterFontSize);
+    
+    if (paginate) availableHeight -= (int)ItemFontSize;
 
     AvailableChars = (int)(Menu.MENU_LENGTH / ((int)ItemFontSize * 0.6)
       - (Cursor[0].Display.Length + Cursor[1].Display.Length

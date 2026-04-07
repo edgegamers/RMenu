@@ -101,17 +101,25 @@ public static partial class Menu {
   }
 
   private static void renderBody(StringBuilder stringBuilder, MenuBase menu) {
-    var start         = 0;
-    var end           = menu.Items.Count;
-    var selectedIndex = menu.SelectedItem?.Index ?? 0;
+    int start, end;
 
-    if (menu.Items.Count > menu.Options.AvailableItems) {
-      var half = menu.Options.AvailableItems / 2;
-      start = Math.Max(0, selectedIndex - half);
-      end   = Math.Min(menu.Items.Count, start + menu.Options.AvailableItems);
+    if (menu.Options.Paginate) {
+      var pageSize = menu.Options.AvailableItems;
+      start = menu.CurrentPage * pageSize;
+      end   = Math.Min(menu.Items.Count, start + pageSize);
+    } else {
+      start = 0;
+      end   = menu.Items.Count;
+      var selectedIndex = menu.SelectedItem?.Index ?? 0;
 
-      if (end - start < menu.Options.AvailableItems)
-        start = Math.Max(0, end - menu.Options.AvailableItems);
+      if (menu.Items.Count > menu.Options.AvailableItems) {
+        var half = menu.Options.AvailableItems / 2;
+        start = Math.Max(0, selectedIndex - half);
+        end   = Math.Min(menu.Items.Count, start + menu.Options.AvailableItems);
+
+        if (end - start < menu.Options.AvailableItems)
+          start = Math.Max(0, end - menu.Options.AvailableItems);
+      }
     }
 
     if (menu.Items.Count != 0)
@@ -120,9 +128,51 @@ public static partial class Menu {
     for (var i = start; i < end; i++) {
       renderItem(stringBuilder, menu, menu.Items[i]);
 
-      if (i < end - 1 || menu.Footer is not null)
+      if (i < end - 1 || menu.Options.Paginate || menu.Footer is not null)
         _ = stringBuilder.Append("<br>");
     }
+
+    if (menu.Options.Paginate) renderPageBar(stringBuilder, menu);
+  }
+
+  private static void
+    renderPageBar(StringBuilder stringBuilder, MenuBase menu) {
+    var current   = menu.CurrentPage;
+    var pageCount = menu.PageCount;
+
+    if (pageCount <= 1) {
+      // Still reserve the line so layout is stable
+      _ = stringBuilder.Append('\u00A0');
+      if (menu.Footer is not null) _ = stringBuilder.Append("<br>");
+      return;
+    }
+
+    _ = stringBuilder.Append("</font>");
+    _ = stringBuilder.Append(menu.Options.FooterSizeHtml);
+    _ = stringBuilder.Append("Page: ");
+
+    // Show at most ~7 page tokens; use "..." for overflow
+    const int window = 3; // pages shown either side of current
+
+    for (var p = 0; p < pageCount; p++) {
+      var distFromCurrent = Math.Abs(p - current);
+      var isFirst         = p == 0;
+      var isLast          = p == pageCount - 1;
+      var inWindow        = distFromCurrent <= window;
+
+      if (!isFirst && !isLast && !inWindow) {
+        // Emit ellipsis once when transitioning into a skipped range
+        var prevDist                            = Math.Abs((p - 1) - current);
+        if (prevDist <= window || p - 1 == 0) _ = stringBuilder.Append("... ");
+        continue;
+      }
+
+      _ = p == current ?
+        stringBuilder.Append($"[{p + 1}] ") :
+        stringBuilder.Append($"{p + 1} ");
+    }
+
+    if (menu.Footer is not null) _ = stringBuilder.Append("<br>");
   }
 
   private static void renderItem(StringBuilder stringBuilder, MenuBase menu,
@@ -138,9 +188,11 @@ public static partial class Menu {
       && menuItem.Values is not { Count: > 0 };
 
     var headLength =
-      menuItem.Head?.calculateLength(isSelected ? menu.Options.Highlight : null) ?? 0;
+      menuItem.Head?.calculateLength(isSelected ? menu.Options.Highlight : null)
+      ?? 0;
     var tailLength =
-      menuItem.Tail?.calculateLength(isSelected ? menu.Options.Highlight : null) ?? 0;
+      menuItem.Tail?.calculateLength(isSelected ? menu.Options.Highlight : null)
+      ?? 0;
 
     switch (menuItem.Options.Trim) {
       case MenuTrim.HEAD when menuItem.Head is not null:
