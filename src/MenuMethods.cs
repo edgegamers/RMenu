@@ -1,6 +1,7 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using RMenu.Enums;
+using RMenu.Extensions;
 using RMenu.Models;
 
 namespace RMenu;
@@ -48,6 +49,9 @@ public static partial class Menu {
       else
         menuData.Menus.Add(menuStack);
     }
+    
+    if (menu.Options.BlockMovement && player.IsAlive()) 
+      player.Freeze();
 
     menuData.Update();
   }
@@ -66,6 +70,9 @@ public static partial class Menu {
     if (menuData.Menus.Count == 0 || menuData.Menus[0].Count < 2) return false;
 
     menuData.Menus[0].RemoveAt(menuData.Menus[0].Count - 1);
+    
+    ensureFreezeState(player, menuData);
+    
     menuData.Update();
     return true;
   }
@@ -81,6 +88,8 @@ public static partial class Menu {
 
       menuData.Menus.RemoveAt(i - 1);
     }
+    
+    ensureFreezeState(player, menuData);
 
     menuData.Update();
   }
@@ -126,5 +135,16 @@ public static partial class Menu {
   internal static bool isSelectable(MenuItem menuItem) {
     return menuItem.Type is MenuItemType.CHOICE or MenuItemType.BUTTON
       or MenuItemType.INPUT;
+  }
+  
+  private static void ensureFreezeState(CCSPlayerController player,
+    MenuData menuData) {
+    var anyFreezeMenu = menuData.Menus.Count > 0
+      && menuData.Menus[0].Count > 0
+      && menuData.Menus.Any(stack =>
+        stack.Count > 0 && stack[^1].Options.BlockMovement);
+
+    if (!anyFreezeMenu && player.IsAlive())
+      player.Unfreeze();
   }
 }
