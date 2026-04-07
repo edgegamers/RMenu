@@ -1,0 +1,121 @@
+﻿name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_VERSION: '8.0.x'
+      PROJECT_PATH: 'src/RMenu.csproj'
+      PROJECT_NAME: 'RMenu'
+      PACKAGE_NAME: 'RMenu'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
+
+      - name: Locate build output
+        id: paths
+        shell: bash
+        run: |
+          set -e
+
+          DLL_PATH="$(find src/bin/Release -type f -name '${{ env.PROJECT_NAME }}.dll' | head -n 1)"
+
+          if [ -z "$DLL_PATH" ]; then
+            echo "Could not find ${{ env.PROJECT_NAME }}.dll"
+            exit 1
+          fi
+
+          OUTPUT_DIR="$(dirname "$DLL_PATH")"
+
+          echo "dll_path=$DLL_PATH" >> "$GITHUB_OUTPUT"
+          echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Stage release files
+        shell: bash
+        run: |
+          set -e
+
+          mkdir -p package/${{ env.PACKAGE_NAME }}
+
+          echo "Copying files from: ${{ steps.paths.outputs.output_dir }}"
+
+          rsync -av \
+            "${{ steps.paths.outputs.output_dir }}/" \
+            "package/${{ env.PACKAGE_NAME }}/"
+
+      - name: Create zip
+        shell: bash
+        run: |
+          cd package
+          zip -r ../${{ env.PACKAGE_NAME }}.zip .
+
+      - name: Create GitHub release and upload zip
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PACKAGE_NAME }}.zip
+          generate_release_notes: true
+
+      - name: Pack NuGet package
+        shell: bash
+        run: |
+          mkdir -p ./nupkg
+          dotnet pack ${{ env.PROJECT_PATH }} \
+            --configuration Release \
+            --no-build \
+            -p:PackageVersion=${GITHUB_REF_NAME#v} \
+            -p:PackageId=${{ env.PACKAGE_NAME }} \
+            -o ./nupkg
+
+          echo "Packed files:"
+          ls -la ./nupkg
+
+      - name: Publish package to NuGet.org
+        shell: bash
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          set -e
+
+          echo "Contents of nupkg folder:"
+          ls -la ./nupkg
+
+          PACKAGE=$(find ./nupkg -maxdepth 1 -type f -name '*.nupkg' ! -name '*.snupkg' | head -n 1)
+
+          if [ -z "$PACKAGE" ]; then
+            echo "No .nupkg file found in ./nupkg"
+            exit 1
+          fi
+
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "NUGET_API_KEY is empty or unavailable"
+            exit 1
+          fi
+
+          echo "Publishing: $PACKAGE"
+
+          dotnet nuget push "$PACKAGE" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "$NUGET_API_KEY" \
+            --skip-duplicate

@@ -4,8 +4,30 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+        <!-- NuGet package metadata -->
+        <PackageId>RMenu</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>ShookEagle</Authors>
+        <Copyright>ShookEagle</Copyright>
+        <Description>Menu system with WASD COntrols for EdgeGamers.com Servers.</Description>
+        <PackageTags>cs2;counterstrikesharp;menus;menu</PackageTags>
+        <PackageProjectUrl>https://github.com/edgegamers/RMenu</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/edgegamers/RMenu</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
+    
     <ItemGroup>
         <PackageReference Include="CounterStrikeSharp.API" Version="1.0.364"/>
     </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\README.md" Pack="true" PackagePath="README.md" />
+    </ItemGroup>
+    
 </Project>
