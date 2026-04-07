@@ -5,31 +5,19 @@ using RMenu.Enums;
 
 namespace Example;
 
-public partial class Example
-{
-    private void Example9Menu(CCSPlayerController? player, CommandInfo info)
-    {
-        if (player is null || !player.IsValid)
-        {
-            return;
-        }
+public partial class Example {
+  private void example9Menu(CCSPlayerController? player, CommandInfo info) {
+    if (player is null || !player.IsValid) return;
 
-        MenuBase menu = new();
+    MenuBase menu = new();
 
-        menu.Items.Add(
-            new MenuItem(
-                type: MenuItemType.Input,
-                head: new MenuValue("Enter value: "),
-                callback: (menu, menuItem, menuAction) =>
-                {
-                    if (menuAction == MenuAction.Input && menuItem.Data is string input)
-                    {
-                        player.PrintToChat($"Input - Data: {input}");
-                    }
-                }
-            )
-        );
+    menu.Items.Add(new MenuItem(MenuItemType.INPUT,
+      new MenuValue("Enter value: "), callback: (_, menuItem, menuAction)
+        => {
+        if (menuAction == MenuAction.INPUT && menuItem.Data is string input)
+          player.PrintToChat($"Input - Data: {input}");
+      }));
 
-        Menu.Display(player, menu);
-    }
+    Menu.Display(player, menu);
+  }
 }

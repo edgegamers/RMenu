@@ -1,12 +1,11 @@
 namespace RMenu.Enums;
 
-public enum MenuAction
-{
-    Start,
-    Select,
-    Choose,
-    Update,
-    Exit,
-    Assist,
-    Input,
+public enum MenuAction {
+  START,
+  SELECT,
+  CHOOSE,
+  UPDATE,
+  EXIT,
+  ASSIST,
+  INPUT
 }

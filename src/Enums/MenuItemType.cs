@@ -1,10 +1,5 @@
 namespace RMenu.Enums;
 
-public enum MenuItemType
-{
-    Text,
-    Spacer,
-    Choice,
-    Button,
-    Input,
+public enum MenuItemType {
+  TEXT, SPACER, CHOICE, BUTTON, INPUT
 }

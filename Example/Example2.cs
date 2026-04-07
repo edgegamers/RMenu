@@ -7,48 +7,34 @@ using RMenu.Extensions;
 
 namespace Example;
 
-public partial class Example
-{
-    private void Example2Menu(CCSPlayerController? player, CommandInfo info)
-    {
-        if (player is null || !player.IsValid)
-        {
-            return;
-        }
+public partial class Example {
+  private void example2Menu(CCSPlayerController? player, CommandInfo info) {
+    if (player is null || !player.IsValid) return;
 
-        List<MenuObject> header =
-        [
-            new("new ", new MenuFormat(color: Color.Green)),
-            new("menu", new MenuFormat(color: Color.Blue, style: MenuStyle.Bold)),
-        ];
+    List<MenuObject> header = [
+      new("new ", new MenuFormat(Color.Green)),
+      new("menu", new MenuFormat(Color.Blue, MenuStyle.BOLD))
+    ];
 
-        MenuValue footer = new(
-            "footer",
-            new MenuFormat(color: new Color().Strobe(Color.Red, Color.Orange))
-        );
+    MenuValue footer = new("footer",
+      new MenuFormat(new Color().Strobe(Color.Red, Color.Orange)));
 
-        MenuBase menu = new(header: header, footer: footer);
+    MenuBase menu = new(header, footer);
 
-        Menu.Display(
-            player,
-            menu,
-            callback: (menu, menuAction) =>
-            {
-                switch (menuAction)
-                {
-                    case MenuAction.Start:
-                        player.PrintToChat("Menu Start");
-                        break;
+    Menu.Display(player, menu, callback: (_, menuAction) => {
+      switch (menuAction) {
+        case MenuAction.START:
+          player.PrintToChat("Menu Start");
+          break;
 
-                    case MenuAction.Exit:
-                        player.PrintToChat("Menu Exit");
-                        break;
+        case MenuAction.EXIT:
+          player.PrintToChat("Menu Exit");
+          break;
 
-                    case MenuAction.Select:
-                        Menu.Clear(player);
-                        break;
-                }
-            }
-        );
-    }
+        case MenuAction.SELECT:
+          Menu.Clear(player);
+          break;
+      }
+    });
+  }
 }

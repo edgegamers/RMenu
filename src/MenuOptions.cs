@@ -1,355 +1,265 @@
 using System.Drawing;
-using Microsoft.Extensions.Options;
 using RMenu.Enums;
 using RMenu.Extensions;
 
 namespace RMenu;
 
-public class MenuOptions
-{
-    private readonly HashSet<string> _options = [];
+public class MenuOptions {
+  private readonly HashSet<string> options = [];
+  private bool blockMovement;
 
-    private MenuFontSize _headerFontSize = MenuFontSize.L;
-    private MenuFontSize _itemFontSize = MenuFontSize.SM;
-    private MenuFontSize _footerFontSize = MenuFontSize.S;
+  private MenuInput<MenuButton> buttons = new();
+  private MenuContinuous<MenuButton> continuous = new();
 
-    private bool _processInput = true;
-    private bool _blockMovement = false;
-    private bool _displayItemsInHeader = true;
-    private bool _exitable = true;
-    private int _priority = 0;
+  private MenuObject[] cursor = [
+    new("►", new MenuFormat(new Color().Rainbow())),
+    new("◄", new MenuFormat(new Color().Rainbow()))
+  ];
 
-    private MenuInput<MenuButton> _buttons = new();
-    private MenuContinuous<MenuButton> _continuous = new();
+  private bool displayItemsInHeader = true;
+  private bool exitable = true;
+  private MenuFontSize footerFontSize = MenuFontSize.S;
 
-    private MenuObject[] _cursor =
-    [
-        new("►", new MenuFormat(new Color().Rainbow())),
-        new("◄", new MenuFormat(new Color().Rainbow())),
-    ];
+  private MenuFontSize headerFontSize = MenuFontSize.L;
+  private MenuFormat? highlight;
 
-    private MenuObject[] _selector =
-    [
-        new("[ ", new MenuFormat(new Color().Rainbow())),
-        new(" ]", new MenuFormat(new Color().Rainbow())),
-    ];
+  private MenuValue input = new("________");
+  private MenuFontSize itemFontSize = MenuFontSize.SM;
+  private int priority;
 
-    private MenuValue _input = new("________");
-    private MenuFormat? _highlight = null;
+  private bool processInput = true;
 
-    public MenuOptions() => UpdateHtml();
+  private MenuObject[] selector = [
+    new("[ ", new MenuFormat(new Color().Rainbow())),
+    new(" ]", new MenuFormat(new Color().Rainbow()))
+  ];
 
-    public MenuOptions(MenuOptions source)
-    {
-        _headerFontSize = source._headerFontSize;
-        _itemFontSize = source._itemFontSize;
-        _footerFontSize = source._footerFontSize;
+  public MenuOptions() { updateHtml(); }
 
-        _processInput = source._processInput;
-        _blockMovement = source._blockMovement;
-        _displayItemsInHeader = source._displayItemsInHeader;
-        _exitable = source._exitable;
-        _priority = source._priority;
+  public MenuOptions(MenuOptions source) {
+    headerFontSize = source.headerFontSize;
+    itemFontSize   = source.itemFontSize;
+    footerFontSize = source.footerFontSize;
 
-        _buttons = new MenuInput<MenuButton>();
-        _continuous = new MenuContinuous<MenuButton>();
-        _cursor = new MenuObject[source._cursor.Length];
-        _selector = new MenuObject[source._selector.Length];
+    processInput         = source.processInput;
+    blockMovement        = source.blockMovement;
+    displayItemsInHeader = source.displayItemsInHeader;
+    exitable             = source.exitable;
+    priority             = source.priority;
 
-        foreach (MenuButton button in Enum.GetValues<MenuButton>())
-        {
-            _buttons[button] = source._buttons[button];
-        }
+    buttons    = new MenuInput<MenuButton>();
+    continuous = new MenuContinuous<MenuButton>();
+    cursor     = new MenuObject[source.cursor.Length];
+    selector   = new MenuObject[source.selector.Length];
 
-        foreach (MenuButton button in Enum.GetValues<MenuButton>())
-        {
-            _continuous[button] = source._continuous[button];
-        }
+    foreach (var button in Enum.GetValues<MenuButton>())
+      buttons[button] = source.buttons[button];
 
-        for (int i = 0; i < source._cursor.Length; i++)
-        {
-            MenuObject original = source._cursor[i];
+    foreach (var button in Enum.GetValues<MenuButton>())
+      continuous[button] = source.continuous[button];
 
-            _cursor[i] = new MenuObject(
-                original.Text,
-                new MenuFormat(
-                    original.Format.Color,
-                    original.Format.Style,
-                    original.Format.CanHighlight
-                )
-            );
-        }
+    for (var i = 0; i < source.cursor.Length; i++) {
+      var original = source.cursor[i];
 
-        for (int i = 0; i < source._selector.Length; i++)
-        {
-            MenuObject original = source._selector[i];
-
-            _selector[i] = new MenuObject(
-                original.Text,
-                new MenuFormat(
-                    original.Format.Color,
-                    original.Format.Style,
-                    original.Format.CanHighlight
-                )
-            );
-        }
-
-        _input = source._input;
-
-        if (source._highlight is not null)
-        {
-            _highlight = new MenuFormat(
-                source._highlight.Color,
-                source._highlight.Style,
-                source._highlight.CanHighlight
-            );
-        }
-
-        _options = [.. source._options];
-        UpdateHtml();
+      cursor[i] = new MenuObject(original.Text,
+        new MenuFormat(original.Format.Color, original.Format.Style,
+          original.Format.CanHighlight));
     }
 
-    public MenuFontSize HeaderFontSize
-    {
-        get => _headerFontSize;
-        set
-        {
-            _headerFontSize = value;
-            _ = _options.Add(nameof(HeaderFontSize));
-            UpdateHtml();
-        }
+    for (var i = 0; i < source.selector.Length; i++) {
+      var original = source.selector[i];
+
+      selector[i] = new MenuObject(original.Text,
+        new MenuFormat(original.Format.Color, original.Format.Style,
+          original.Format.CanHighlight));
     }
 
-    public MenuFontSize ItemFontSize
-    {
-        get => _itemFontSize;
-        set
-        {
-            _itemFontSize = value;
-            _ = _options.Add(nameof(ItemFontSize));
-            UpdateHtml();
-        }
+    input = source.input;
+
+    if (source.highlight is not null)
+      highlight = new MenuFormat(source.highlight.Color,
+        source.highlight.Style, source.highlight.CanHighlight);
+
+    options = [.. source.options];
+    updateHtml();
+  }
+
+  public MenuFontSize HeaderFontSize {
+    get => headerFontSize;
+    set {
+      headerFontSize = value;
+      _               = options.Add(nameof(HeaderFontSize));
+      updateHtml();
     }
+  }
 
-    public MenuFontSize FooterFontSize
-    {
-        get => _footerFontSize;
-        set
-        {
-            _footerFontSize = value;
-            _ = _options.Add(nameof(FooterFontSize));
-            UpdateHtml();
-        }
+  public MenuFontSize ItemFontSize {
+    get => itemFontSize;
+    set {
+      itemFontSize = value;
+      _             = options.Add(nameof(ItemFontSize));
+      updateHtml();
     }
+  }
 
-    public MenuInput<MenuButton> Buttons
-    {
-        get => _buttons;
-        set
-        {
-            _buttons = value;
-            _ = _options.Add(nameof(Buttons));
-        }
+  public MenuFontSize FooterFontSize {
+    get => footerFontSize;
+    set {
+      footerFontSize = value;
+      _               = options.Add(nameof(FooterFontSize));
+      updateHtml();
     }
+  }
 
-    public MenuContinuous<MenuButton> Continuous
-    {
-        get => _continuous;
-        set
-        {
-            _continuous = value;
-            _ = _options.Add(nameof(Continuous));
-        }
+  public MenuInput<MenuButton> Buttons {
+    get => buttons;
+    set {
+      buttons = value;
+      _        = options.Add(nameof(Buttons));
     }
+  }
 
-    public bool ProcessInput
-    {
-        get => _processInput;
-        set
-        {
-            _processInput = value;
-            _ = _options.Add(nameof(ProcessInput));
-        }
+  public MenuContinuous<MenuButton> Continuous {
+    get => continuous;
+    set {
+      continuous = value;
+      _           = options.Add(nameof(Continuous));
     }
+  }
 
-    public bool BlockMovement
-    {
-        get => _blockMovement;
-        set
-        {
-            _blockMovement = value;
-            _ = _options.Add(nameof(BlockMovement));
-        }
+  public bool ProcessInput {
+    get => processInput;
+    set {
+      processInput = value;
+      _             = options.Add(nameof(ProcessInput));
     }
+  }
 
-    public bool DisplayItemsInHeader
-    {
-        get => _displayItemsInHeader;
-        set
-        {
-            _displayItemsInHeader = value;
-            _ = _options.Add(nameof(DisplayItemsInHeader));
-        }
+  public bool BlockMovement {
+    get => blockMovement;
+    set {
+      blockMovement = value;
+      _              = options.Add(nameof(BlockMovement));
     }
+  }
 
-    public bool Exitable
-    {
-        get => _exitable;
-        set
-        {
-            _exitable = value;
-            _ = _options.Add(nameof(Exitable));
-        }
+  public bool DisplayItemsInHeader {
+    get => displayItemsInHeader;
+    set {
+      displayItemsInHeader = value;
+      _                     = options.Add(nameof(DisplayItemsInHeader));
     }
+  }
 
-    public int Priority
-    {
-        get => _priority;
-        set
-        {
-            _priority = value;
-            _ = _options.Add(nameof(Priority));
-        }
+  public bool Exitable {
+    get => exitable;
+    set {
+      exitable = value;
+      _         = options.Add(nameof(Exitable));
     }
+  }
 
-    public MenuObject[] Cursor
-    {
-        get => _cursor;
-        set
-        {
-            _cursor = value;
-            _ = _options.Add(nameof(Cursor));
-        }
+  public int Priority {
+    get => priority;
+    set {
+      priority = value;
+      _         = options.Add(nameof(Priority));
     }
-    public MenuObject[] Selector
-    {
-        get => _selector;
-        set
-        {
-            _selector = value;
-            _ = _options.Add(nameof(Selector));
-        }
+  }
+
+  public MenuObject[] Cursor {
+    get => cursor;
+    set {
+      cursor = value;
+      _       = options.Add(nameof(Cursor));
     }
+  }
 
-    public MenuValue Input
-    {
-        get => _input;
-        set
-        {
-            _input = value;
-            _ = _options.Add(nameof(Input));
-        }
+  public MenuObject[] Selector {
+    get => selector;
+    set {
+      selector = value;
+      _         = options.Add(nameof(Selector));
     }
+  }
 
-    public MenuFormat? Highlight
-    {
-        get => _highlight;
-        set
-        {
-            _highlight = value;
-            _ = _options.Add(nameof(Highlight));
-        }
+  public MenuValue Input {
+    get => input;
+    set {
+      input = value;
+      _      = options.Add(nameof(Input));
     }
+  }
 
-    internal string HeaderSizeHtml { get; private set; } = string.Empty;
-    internal string ItemSizeHtml { get; private set; } = string.Empty;
-    internal string FooterSizeHtml { get; private set; } = string.Empty;
-    internal int AvailableChars { get; private set; } = 1;
-    internal int AvailableItems { get; private set; } = 1;
-
-    internal void Merge(MenuOptions overrides)
-    {
-        if (overrides.IsSet(nameof(HeaderFontSize)))
-        {
-            HeaderFontSize = overrides.HeaderFontSize;
-        }
-
-        if (overrides.IsSet(nameof(ItemFontSize)))
-        {
-            ItemFontSize = overrides.ItemFontSize;
-        }
-
-        if (overrides.IsSet(nameof(FooterFontSize)))
-        {
-            FooterFontSize = overrides.FooterFontSize;
-        }
-
-        if (overrides.IsSet(nameof(ProcessInput)))
-        {
-            ProcessInput = overrides.ProcessInput;
-        }
-
-        if (overrides.IsSet(nameof(BlockMovement)))
-        {
-            BlockMovement = overrides.BlockMovement;
-        }
-
-        if (overrides.IsSet(nameof(DisplayItemsInHeader)))
-        {
-            DisplayItemsInHeader = overrides.DisplayItemsInHeader;
-        }
-
-        if (overrides.IsSet(nameof(Exitable)))
-        {
-            Exitable = overrides.Exitable;
-        }
-
-        if (overrides.IsSet(nameof(Priority)))
-        {
-            Priority = overrides.Priority;
-        }
-
-        if (overrides.IsSet(nameof(Buttons)))
-        {
-            Buttons = overrides.Buttons;
-        }
-
-        if (overrides.IsSet(nameof(Continuous)))
-        {
-            Continuous = overrides.Continuous;
-        }
-
-        if (overrides.IsSet(nameof(Cursor)))
-        {
-            Cursor = overrides.Cursor;
-        }
-
-        if (overrides.IsSet(nameof(Selector)))
-        {
-            Selector = overrides.Selector;
-        }
-
-        if (overrides.IsSet(nameof(Input)))
-        {
-            Input = overrides.Input;
-        }
-
-        if (overrides.IsSet(nameof(Highlight)))
-        {
-            Highlight = overrides.Highlight;
-        }
+  public MenuFormat? Highlight {
+    get => highlight;
+    set {
+      highlight = value;
+      _          = options.Add(nameof(Highlight));
     }
+  }
 
-    private bool IsSet(string propertyName) => _options.Contains(propertyName);
+  internal string HeaderSizeHtml { get; private set; } = string.Empty;
+  internal string ItemSizeHtml { get; private set; } = string.Empty;
+  internal string FooterSizeHtml { get; private set; } = string.Empty;
+  internal int AvailableChars { get; private set; } = 1;
+  internal int AvailableItems { get; private set; } = 1;
 
-    private void UpdateHtml()
-    {
-        HeaderSizeHtml = $"<font class=\"fontSize-{_headerFontSize.ToString().ToLower()}\">";
-        ItemSizeHtml = $"<font class=\"fontSize-{_itemFontSize.ToString().ToLower()}\">";
-        FooterSizeHtml = $"<font class=\"fontSize-{_footerFontSize.ToString().ToLower()}\">";
+  internal void merge(MenuOptions overrides) {
+    if (overrides.isSet(nameof(HeaderFontSize)))
+      HeaderFontSize = overrides.HeaderFontSize;
 
-        int availableHeight = Menu.MENU_HEIGHT - ((int)HeaderFontSize + (int)FooterFontSize);
+    if (overrides.isSet(nameof(ItemFontSize)))
+      ItemFontSize = overrides.ItemFontSize;
 
-        AvailableChars = (int)(
-            (Menu.MENU_LENGTH / ((int)ItemFontSize * 0.6))
-            - (
-                Cursor[0].Display.Length
-                + Cursor[1].Display.Length
-                + Selector[0].Display.Length
-                + Selector[1].Display.Length
-            )
-        );
+    if (overrides.isSet(nameof(FooterFontSize)))
+      FooterFontSize = overrides.FooterFontSize;
 
-        AvailableItems = Math.Max(1, availableHeight / (int)ItemFontSize);
-    }
+    if (overrides.isSet(nameof(ProcessInput)))
+      ProcessInput = overrides.ProcessInput;
+
+    if (overrides.isSet(nameof(BlockMovement)))
+      BlockMovement = overrides.BlockMovement;
+
+    if (overrides.isSet(nameof(DisplayItemsInHeader)))
+      DisplayItemsInHeader = overrides.DisplayItemsInHeader;
+
+    if (overrides.isSet(nameof(Exitable))) Exitable = overrides.Exitable;
+
+    if (overrides.isSet(nameof(Priority))) Priority = overrides.Priority;
+
+    if (overrides.isSet(nameof(Buttons))) Buttons = overrides.Buttons;
+
+    if (overrides.isSet(nameof(Continuous))) Continuous = overrides.Continuous;
+
+    if (overrides.isSet(nameof(Cursor))) Cursor = overrides.Cursor;
+
+    if (overrides.isSet(nameof(Selector))) Selector = overrides.Selector;
+
+    if (overrides.isSet(nameof(Input))) Input = overrides.Input;
+
+    if (overrides.isSet(nameof(Highlight))) Highlight = overrides.Highlight;
+  }
+
+  private bool isSet(string propertyName) {
+    return options.Contains(propertyName);
+  }
+
+  private void updateHtml() {
+    HeaderSizeHtml =
+      $"<font class=\"fontSize-{headerFontSize.ToString().ToLower()}\">";
+    ItemSizeHtml =
+      $"<font class=\"fontSize-{itemFontSize.ToString().ToLower()}\">";
+    FooterSizeHtml =
+      $"<font class=\"fontSize-{footerFontSize.ToString().ToLower()}\">";
+
+    var availableHeight = Menu.MENU_HEIGHT
+      - ((int)HeaderFontSize + (int)FooterFontSize);
+
+    AvailableChars = (int)(Menu.MENU_LENGTH / ((int)ItemFontSize * 0.6)
+      - (Cursor[0].Display.Length + Cursor[1].Display.Length
+        + Selector[0].Display.Length + Selector[1].Display.Length));
+
+    AvailableItems = Math.Max(1, availableHeight / (int)ItemFontSize);
+  }
 }

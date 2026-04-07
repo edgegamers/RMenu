@@ -7,394 +7,300 @@ using RMenu.Models;
 
 namespace RMenu;
 
-public static partial class Menu
-{
-    public const int MAX_PLAYERS = 64;
-    internal const int MENU_HEIGHT = 140;
-    internal const int MENU_LENGTH = 300;
+public static partial class Menu {
+  public const int MAX_PLAYERS = 64;
+  internal const int MENU_HEIGHT = 140;
+  internal const int MENU_LENGTH = 300;
 
-    private static readonly StringBuilder _menuBuilder = new(8192);
-    private static readonly MenuData?[] _menuData = new MenuData[MAX_PLAYERS];
+  private static readonly StringBuilder MENU_BUILDER = new(8192);
+  private static readonly MenuData?[] MENU_DATA = new MenuData[MAX_PLAYERS];
 
-    public static event EventHandler<MenuEvent>? OnPrintMenu;
+  static Menu() {
+    OnSayListener.Register();
+    OnTickListener.Register();
 
-    static Menu()
-    {
-        OnSayListener.Register();
-        OnTickListener.Register();
+    RunCommandHook.Register();
+    SpecModeHook.Register();
 
-        RunCommandHook.Register();
-        SpecModeHook.Register();
+    Thread menuThread = new(Menu.menuThread) {
+      IsBackground = true, Priority = ThreadPriority.Lowest
+    };
 
-        Thread menuThread = new(MenuThread)
-        {
-            IsBackground = true,
-            Priority = ThreadPriority.Lowest,
-        };
+    menuThread.Start();
+  }
 
-        menuThread.Start();
+  public static event EventHandler<MenuEvent>? OnPrintMenu;
+
+  internal static string RaiseOnPrintMenu(MenuBase menu, string html) {
+    MenuEvent menuEvent = new(menu, html);
+    OnPrintMenu?.Invoke(null, menuEvent);
+    return menuEvent.Html;
+  }
+
+  private static void menuThread() {
+    while (true) {
+      Rainbow.Update();
+      processMenus();
+
+      Thread.Sleep(100);
+    }
+  }
+
+  private static void processMenus() {
+    for (var i = 0; i < MAX_PLAYERS; i++) {
+      if (MENU_DATA[i] is not { } menuData) continue;
+
+      if (menuData.Menus.Count == 0 || menuData.Menus[0].Count == 0) {
+        MENU_DATA[i] = null;
+        continue;
+      }
+
+      var menu = menuData.Menus[0][^1];
+      menuData.Current = (menu, renderMenu(menu));
+    }
+  }
+
+  private static string renderMenu(MenuBase menu) {
+    _ = MENU_BUILDER.Clear();
+    _ = MENU_BUILDER.Append('\u00A0');
+
+    if (menu.Header is { } header) renderHeader(MENU_BUILDER, menu, header);
+
+    renderBody(MENU_BUILDER, menu);
+
+    if (menu.Footer is { } footer) renderFooter(MENU_BUILDER, menu, footer);
+
+    return MENU_BUILDER.ToString();
+  }
+
+  private static void renderHeader(StringBuilder stringBuilder, MenuBase menu,
+    MenuValue header) {
+    _ = stringBuilder.Append(menu.Options.HeaderSizeHtml);
+    header.render(stringBuilder);
+
+    if (menu.Options.DisplayItemsInHeader) {
+      var isSubMenu = MENU_DATA[menu.Player.Slot]?.Menus[0].Count > 1;
+
+      if (isSubMenu || menu.SelectedItem is not null)
+        _ = stringBuilder.Append($"</font>{menu.Options.FooterSizeHtml}");
+
+      if (isSubMenu) _ = stringBuilder.Append(" ⇦");
+
+      if (menu.SelectedItem is not null)
+        _ = stringBuilder.Append(
+          $" {menu.SelectedItem.Index + 1}/{menu.Items.Count}");
     }
 
-    internal static string RaiseOnPrintMenu(MenuBase menu, string html)
-    {
-        MenuEvent menuEvent = new(menu, html);
-        OnPrintMenu?.Invoke(null, menuEvent);
-        return menuEvent.Html;
+    _ = stringBuilder.Append("<br>");
+  }
+
+  private static void renderFooter(StringBuilder stringBuilder, MenuBase menu,
+    MenuValue footer) {
+    _ = stringBuilder.Append($"</font>{menu.Options.FooterSizeHtml}");
+    footer.render(stringBuilder);
+  }
+
+  private static void renderBody(StringBuilder stringBuilder, MenuBase menu) {
+    var start         = 0;
+    var end           = menu.Items.Count;
+    var selectedIndex = menu.SelectedItem?.Index ?? 0;
+
+    if (menu.Items.Count > menu.Options.AvailableItems) {
+      var half = menu.Options.AvailableItems / 2;
+      start = Math.Max(0, selectedIndex - half);
+      end   = Math.Min(menu.Items.Count, start + menu.Options.AvailableItems);
+
+      if (end - start < menu.Options.AvailableItems)
+        start = Math.Max(0, end - menu.Options.AvailableItems);
     }
 
-    private static void MenuThread()
-    {
-        while (true)
-        {
-            Rainbow.Update();
-            ProcessMenus();
+    if (menu.Items.Count != 0)
+      _ = stringBuilder.Append($"</font>{menu.Options.ItemSizeHtml}");
 
-            Thread.Sleep(100);
-        }
-    }
+    for (var i = start; i < end; i++) {
+      renderItem(stringBuilder, menu, menu.Items[i]);
 
-    private static void ProcessMenus()
-    {
-        for (int i = 0; i < MAX_PLAYERS; i++)
-        {
-            if (_menuData[i] is not { } menuData)
-            {
-                continue;
-            }
-
-            if (menuData.Menus.Count == 0 || menuData.Menus[0].Count == 0)
-            {
-                _menuData[i] = null;
-                continue;
-            }
-
-            MenuBase menu = menuData.Menus[0][^1];
-            menuData.Current = (menu, RenderMenu(menu));
-        }
-    }
-
-    private static string RenderMenu(MenuBase menu)
-    {
-        _ = _menuBuilder.Clear();
-        _ = _menuBuilder.Append(' ');
-
-        if (menu.Header is { } header)
-        {
-            RenderHeader(_menuBuilder, menu, header);
-        }
-
-        RenderBody(_menuBuilder, menu);
-
-        if (menu.Footer is { } footer)
-        {
-            RenderFooter(_menuBuilder, menu, footer);
-        }
-
-        return _menuBuilder.ToString();
-    }
-
-    private static void RenderHeader(StringBuilder stringBuilder, MenuBase menu, MenuValue header)
-    {
-        _ = stringBuilder.Append(menu.Options.HeaderSizeHtml);
-        header.Render(stringBuilder);
-
-        if (menu.Options.DisplayItemsInHeader)
-        {
-            bool isSubMenu = _menuData[menu.Player.Slot]?.Menus[0].Count > 1;
-
-            if (isSubMenu || menu.SelectedItem is not null)
-            {
-                _ = stringBuilder.Append($"</font>{menu.Options.FooterSizeHtml}");
-            }
-
-            if (isSubMenu)
-            {
-                _ = stringBuilder.Append(" ⇦");
-            }
-
-            if (menu.SelectedItem is not null)
-            {
-                _ = stringBuilder.Append($" {menu.SelectedItem.Index + 1}/{menu.Items.Count}");
-            }
-        }
-
+      if (i < end - 1 || menu.Footer is not null)
         _ = stringBuilder.Append("<br>");
     }
+  }
 
-    private static void RenderFooter(StringBuilder stringBuilder, MenuBase menu, MenuValue footer)
-    {
-        _ = stringBuilder.Append($"</font>{menu.Options.FooterSizeHtml}");
-        footer.Render(stringBuilder);
+  private static void renderItem(StringBuilder stringBuilder, MenuBase menu,
+    MenuItem menuItem) {
+    if (menuItem.Type is MenuItemType.SPACER) {
+      _ = stringBuilder.Append('\u00A0');
+      return;
     }
 
-    private static void RenderBody(StringBuilder stringBuilder, MenuBase menu)
-    {
-        int start = 0;
-        int end = menu.Items.Count;
-        int selectedIndex = menu.SelectedItem?.Index ?? 0;
+    var isSelected = menuItem == menu.SelectedItem?.Item;
 
-        if (menu.Items.Count > menu.Options.AvailableItems)
-        {
-            int half = menu.Options.AvailableItems / 2;
-            start = Math.Max(0, selectedIndex - half);
-            end = Math.Min(menu.Items.Count, start + menu.Options.AvailableItems);
+    var isSingleButton = menuItem.Type is MenuItemType.BUTTON
+      && menuItem.Values is not { Count: > 0 };
 
-            if (end - start < menu.Options.AvailableItems)
-            {
-                start = Math.Max(0, end - menu.Options.AvailableItems);
-            }
-        }
+    var headLength =
+      menuItem.Head?.calculateLength(isSelected ? menu.Options.Highlight : null) ?? 0;
+    var tailLength =
+      menuItem.Tail?.calculateLength(isSelected ? menu.Options.Highlight : null) ?? 0;
 
-        if (menu.Items.Count != 0)
-        {
-            _ = stringBuilder.Append($"</font>{menu.Options.ItemSizeHtml}");
-        }
-
-        for (int i = start; i < end; i++)
-        {
-            RenderItem(stringBuilder, menu, menu.Items[i]);
-
-            if (i < end - 1 || menu.Footer is not null)
-            {
-                _ = stringBuilder.Append("<br>");
-            }
-        }
+    switch (menuItem.Options.Trim) {
+      case MenuTrim.HEAD when menuItem.Head is not null:
+        trimValue(menuItem.Head, menu.Options.AvailableChars - tailLength);
+        break;
+      case MenuTrim.TAIL when menuItem.Tail is not null:
+        trimValue(menuItem.Tail, menu.Options.AvailableChars - headLength);
+        break;
     }
 
-    private static void RenderItem(StringBuilder stringBuilder, MenuBase menu, MenuItem menuItem)
-    {
-        if (menuItem.Type is MenuItemType.Spacer)
-        {
-            _ = stringBuilder.Append(' ');
-            return;
-        }
+    if (isSelected) menu.Options.Cursor[0].render(stringBuilder);
 
-        bool isSelected = menuItem == menu.SelectedItem?.Item;
+    if (isSingleButton) renderSelector(stringBuilder, menu, menuItem, 0);
 
-        bool isSingleButton =
-            menuItem.Type is MenuItemType.Button && (menuItem.Values is not { Count: > 0 });
+    menuItem.Head?.render(stringBuilder,
+      isSelected ? menu.Options.Highlight : null);
+    formatType(stringBuilder, menu, menuItem);
+    menuItem.Tail?.render(stringBuilder,
+      isSelected ? menu.Options.Highlight : null);
 
-        int headLength = menuItem.Head?.Length(isSelected ? menu.Options.Highlight : null) ?? 0;
-        int tailLength = menuItem.Tail?.Length(isSelected ? menu.Options.Highlight : null) ?? 0;
+    if (isSingleButton) renderSelector(stringBuilder, menu, menuItem, 1);
 
-        if (menuItem.Options.Trim == MenuTrim.Head && menuItem.Head is not null)
-        {
-            TrimValue(menuItem.Head, menu.Options.AvailableChars - tailLength);
-        }
-        else if (menuItem.Options.Trim == MenuTrim.Tail && menuItem.Tail is not null)
-        {
-            TrimValue(menuItem.Tail, menu.Options.AvailableChars - headLength);
-        }
+    if (isSelected) menu.Options.Cursor[1].render(stringBuilder);
+  }
 
-        if (isSelected)
-        {
-            menu.Options.Cursor[0].Render(stringBuilder);
-        }
+  private static void renderSelector(StringBuilder stringBuilder, MenuBase menu,
+    MenuItem menuItem, int index) {
+    if (menuItem.Type is MenuItemType.BUTTON
+      && menuItem != menu.SelectedItem?.Item)
+      return;
 
-        if (isSingleButton)
-        {
-            RenderSelector(stringBuilder, menu, menuItem, 0);
-        }
+    menu.Options.Selector[index].render(stringBuilder);
+  }
 
-        menuItem.Head?.Render(stringBuilder, isSelected ? menu.Options.Highlight : null);
-        FormatType(stringBuilder, menu, menuItem);
-        menuItem.Tail?.Render(stringBuilder, isSelected ? menu.Options.Highlight : null);
+  private static void formatType(StringBuilder stringBuilder, MenuBase menu,
+    MenuItem menuItem) {
+    switch (menuItem.Type) {
+      case MenuItemType.INPUT:
+        formatInput(stringBuilder, menu, menuItem);
+        break;
 
-        if (isSingleButton)
-        {
-            RenderSelector(stringBuilder, menu, menuItem, 1);
-        }
-
-        if (isSelected)
-        {
-            menu.Options.Cursor[1].Render(stringBuilder);
-        }
+      case MenuItemType.BUTTON or MenuItemType.CHOICE:
+        formatValues(stringBuilder, menu, menuItem);
+        break;
     }
+  }
 
-    private static void RenderSelector(
-        StringBuilder stringBuilder,
-        MenuBase menu,
-        MenuItem menuItem,
-        int index
-    )
-    {
-        if (menuItem.Type is MenuItemType.Button && menuItem != menu.SelectedItem?.Item)
-        {
-            return;
+  private static void formatInput(StringBuilder stringBuilder, MenuBase menu,
+    MenuItem menuItem) {
+    var remainingChars = menu.Options.AvailableChars;
+    var isSelected     = menuItem == menu.SelectedItem?.Item;
+
+    if (menuItem.Head is { } head)
+      remainingChars -= head.calculateLength(menu.Options.Highlight);
+
+    if (menuItem.Tail is { } tail)
+      remainingChars -= tail.calculateLength(menu.Options.Highlight);
+
+    if (menu.Text && isSelected)
+      renderSelector(stringBuilder, menu, menuItem, 0);
+
+    if (menuItem.Data is string input) {
+      var trimmed = trimString(input, remainingChars);
+      _ = stringBuilder.Append(trimmed);
+    } else { menu.Options.Input.render(stringBuilder); }
+
+    if (menu.Text && isSelected)
+      renderSelector(stringBuilder, menu, menuItem, 1);
+  }
+
+  private static void formatValues(StringBuilder stringBuilder, MenuBase menu,
+    MenuItem menuItem) {
+    if (menuItem.Values is not { Count: > 0 }) return;
+
+    var currentIndex = menuItem.SelectedValue?.Index ?? 0;
+    var previousIndex = currentIndex == 0 ?
+      menuItem.Values.Count - 1 :
+      currentIndex - 1;
+    var nextIndex = currentIndex == menuItem.Values.Count - 1 ?
+      0 :
+      currentIndex + 1;
+
+    var selectedLength = menuItem.Values[currentIndex]
+     .calculateLength(menu.Options.Highlight);
+    var remainingChars = menu.Options.AvailableChars - selectedLength;
+
+    if (menuItem.Head is { } head)
+      remainingChars -= head.calculateLength(menu.Options.Highlight);
+
+    if (menuItem.Tail is { } tail)
+      remainingChars -= tail.calculateLength(menu.Options.Highlight);
+
+    var renderItems = 1;
+
+    if (menuItem.Options.Pinwheel || menuItem.Values.Count > 2) renderItems = 2;
+
+    var splitChars = remainingChars / renderItems < 1 ?
+      1 :
+      remainingChars / renderItems;
+
+    trimValue(menuItem.Values[previousIndex], splitChars);
+    trimValue(menuItem.Values[nextIndex], splitChars);
+
+    trimValue(menuItem.Values[currentIndex],
+      remainingChars + selectedLength - splitChars * renderItems);
+
+    if (menuItem.Options.Pinwheel || currentIndex > 0
+      && currentIndex < menuItem.Values.Count - 1) {
+      menuItem.Values[previousIndex].render(stringBuilder);
+      _ = stringBuilder.Append(' ');
+      formatSelected(stringBuilder, menu, menuItem,
+        menuItem.Values[currentIndex]);
+      _ = stringBuilder.Append(' ');
+      menuItem.Values[nextIndex].render(stringBuilder);
+    } else if (currentIndex == 0) {
+      formatSelected(stringBuilder, menu, menuItem,
+        menuItem.Values[currentIndex]);
+
+      for (var i = 0; i < 2 && i < menuItem.Values.Count - 1; i++) {
+        trimValue(menuItem.Values[i + 1], splitChars);
+
+        _ = stringBuilder.Append(' ');
+        menuItem.Values[i + 1].render(stringBuilder);
+      }
+    } else {
+      for (var i = 2; i > 0; i--)
+        if (currentIndex - i >= 0) {
+          trimValue(menuItem.Values[currentIndex - i], splitChars);
+
+          menuItem.Values[currentIndex - i].render(stringBuilder);
+          _ = stringBuilder.Append(' ');
         }
 
-        menu.Options.Selector[index].Render(stringBuilder);
+      formatSelected(stringBuilder, menu, menuItem,
+        menuItem.Values[currentIndex]);
     }
+  }
 
-    private static void FormatType(StringBuilder stringBuilder, MenuBase menu, MenuItem menuItem)
-    {
-        switch (menuItem.Type)
-        {
-            case MenuItemType.Input:
-                FormatInput(stringBuilder, menu, menuItem);
-                break;
+  private static void formatSelected(StringBuilder stringBuilder, MenuBase menu,
+    MenuItem menuItem, MenuValue menuValue) {
+    renderSelector(stringBuilder, menu, menuItem, 0);
+    menuValue.render(stringBuilder, menu.Options.Highlight);
+    renderSelector(stringBuilder, menu, menuItem, 1);
+  }
 
-            case MenuItemType.Button
-            or MenuItemType.Choice:
-                FormatValues(stringBuilder, menu, menuItem);
-                break;
-        }
+  private static void trimValue(MenuValue menuValue, int remainingChars) {
+    remainingChars = Math.Max(1, remainingChars);
+
+    foreach (var menuObject in menuValue.Objects) {
+      menuObject.Display = trimString(menuObject.Text, remainingChars);
+
+      remainingChars -= menuObject.Display.Length;
     }
+  }
 
-    private static void FormatInput(StringBuilder stringBuilder, MenuBase menu, MenuItem menuItem)
-    {
-        int remainingChars = menu.Options.AvailableChars;
-        bool isSelected = menuItem == menu.SelectedItem?.Item;
+  private static string trimString(string input, int remainingChars) {
+    if (remainingChars < 1) return string.Empty;
 
-        if (menuItem.Head is { } head)
-        {
-            remainingChars -= head.Length(menu.Options.Highlight);
-        }
+    if (input.Length <= remainingChars) return input;
 
-        if (menuItem.Tail is { } tail)
-        {
-            remainingChars -= tail.Length(menu.Options.Highlight);
-        }
-
-        if (menu.Text && isSelected)
-        {
-            RenderSelector(stringBuilder, menu, menuItem, 0);
-        }
-
-        if (menuItem.Data is string input)
-        {
-            string trimmed = TrimString(input, remainingChars);
-            _ = stringBuilder.Append(trimmed);
-        }
-        else
-        {
-            menu.Options.Input.Render(stringBuilder);
-        }
-
-        if (menu.Text && isSelected)
-        {
-            RenderSelector(stringBuilder, menu, menuItem, 1);
-        }
-    }
-
-    private static void FormatValues(StringBuilder stringBuilder, MenuBase menu, MenuItem menuItem)
-    {
-        if (menuItem.Values is not { Count: > 0 })
-        {
-            return;
-        }
-
-        int currentIndex = menuItem.SelectedValue?.Index ?? 0;
-        int previousIndex = (currentIndex == 0) ? menuItem.Values.Count - 1 : currentIndex - 1;
-        int nextIndex = (currentIndex == menuItem.Values.Count - 1) ? 0 : currentIndex + 1;
-
-        int selectedLength = menuItem.Values[currentIndex].Length(menu.Options.Highlight);
-        int remainingChars = menu.Options.AvailableChars - selectedLength;
-
-        if (menuItem.Head is { } head)
-        {
-            remainingChars -= head.Length(menu.Options.Highlight);
-        }
-
-        if (menuItem.Tail is { } tail)
-        {
-            remainingChars -= tail.Length(menu.Options.Highlight);
-        }
-
-        int renderItems = 1;
-
-        if (menuItem.Options.Pinwheel || menuItem.Values.Count > 2)
-        {
-            renderItems = 2;
-        }
-
-        int splitChars = remainingChars / renderItems < 1 ? 1 : remainingChars / renderItems;
-
-        TrimValue(menuItem.Values[previousIndex], splitChars);
-        TrimValue(menuItem.Values[nextIndex], splitChars);
-
-        TrimValue(
-            menuItem.Values[currentIndex],
-            remainingChars + selectedLength - (splitChars * renderItems)
-        );
-
-        if (
-            menuItem.Options.Pinwheel
-            || (currentIndex > 0 && currentIndex < menuItem.Values.Count - 1)
-        )
-        {
-            menuItem.Values[previousIndex].Render(stringBuilder);
-            _ = stringBuilder.Append(' ');
-            FormatSelected(stringBuilder, menu, menuItem, menuItem.Values[currentIndex]);
-            _ = stringBuilder.Append(' ');
-            menuItem.Values[nextIndex].Render(stringBuilder);
-        }
-        else if (currentIndex == 0)
-        {
-            FormatSelected(stringBuilder, menu, menuItem, menuItem.Values[currentIndex]);
-
-            for (int i = 0; i < 2 && i < menuItem.Values.Count - 1; i++)
-            {
-                TrimValue(menuItem.Values[i + 1], splitChars);
-
-                _ = stringBuilder.Append(' ');
-                menuItem.Values[i + 1].Render(stringBuilder);
-            }
-        }
-        else
-        {
-            for (int i = 2; i > 0; i--)
-            {
-                if (currentIndex - i >= 0)
-                {
-                    TrimValue(menuItem.Values[currentIndex - i], splitChars);
-
-                    menuItem.Values[currentIndex - i].Render(stringBuilder);
-                    _ = stringBuilder.Append(' ');
-                }
-            }
-
-            FormatSelected(stringBuilder, menu, menuItem, menuItem.Values[currentIndex]);
-        }
-    }
-
-    private static void FormatSelected(
-        StringBuilder stringBuilder,
-        MenuBase menu,
-        MenuItem menuItem,
-        MenuValue menuValue
-    )
-    {
-        RenderSelector(stringBuilder, menu, menuItem, 0);
-        menuValue.Render(stringBuilder, menu.Options.Highlight);
-        RenderSelector(stringBuilder, menu, menuItem, 1);
-    }
-
-    private static void TrimValue(MenuValue menuValue, int remainingChars)
-    {
-        remainingChars = Math.Max(1, remainingChars);
-
-        for (int i = 0; i < menuValue.Objects.Count; i++)
-        {
-            MenuObject menuObject = menuValue.Objects[i];
-            menuObject.Display = TrimString(menuObject.Text, remainingChars);
-
-            remainingChars -= menuObject.Display.Length;
-        }
-    }
-
-    private static string TrimString(string input, int remainingChars)
-    {
-        if (remainingChars < 1)
-        {
-            return string.Empty;
-        }
-
-        if (input.Length <= remainingChars)
-        {
-            return input;
-        }
-
-        return input[..(remainingChars - 1)] + '.';
-    }
+    return input[..(remainingChars - 1)] + '.';
+  }
 }

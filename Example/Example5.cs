@@ -6,88 +6,69 @@ using RMenu.Enums;
 
 namespace Example;
 
-public partial class Example
-{
-    private static readonly List<(string, string, int)> _example5Data =
-    [
-        ("Option ", "1", 1),
-        ("Option ", "2", 2),
-        ("Option trailing ", "3", 3),
+public partial class Example {
+  private static readonly List<(string, string, int)> EXAMPLE5_DATA = [
+    ("Option ", "1", 1), ("Option ", "2", 2), ("Option trailing ", "3", 3)
+  ];
+
+  private void example5Menu(CCSPlayerController? player, CommandInfo info) {
+    if (player is null || !player.IsValid) return;
+
+    MenuOptions options =
+      new() { BlockMovement = true, DisplayItemsInHeader = false };
+    MenuBase menu = new(new MenuValue("header"), new MenuValue("footer"),
+      options);
+
+    List<MenuValue> values = [];
+
+    foreach (var (head, tail, data) in EXAMPLE5_DATA) {
+      var value = formatValue(head, tail);
+      value.Data = data;
+
+      values.Add(value);
+    }
+
+    menu.Items.Add(new MenuItem(MenuItemType.BUTTON, new MenuValue("Select: "),
+      values));
+
+    menu.Items.Add(new MenuItem(MenuItemType.BUTTON,
+      new MenuValue("verylonghead verylonghead", new MenuFormat(Color.Blue)),
+      tail: new MenuValue(" short tail", new MenuFormat(Color.Red)),
+      options: new MenuItemOptions { Trim = MenuTrim.HEAD }));
+
+    menu.Items.Add(new MenuItem(MenuItemType.BUTTON,
+      new MenuValue("short head", new MenuFormat(Color.Blue)),
+      tail: new MenuValue(" verylongtail verylongtail",
+        new MenuFormat(Color.Red)),
+      options: new MenuItemOptions { Trim = MenuTrim.TAIL }));
+
+    Menu.Display(player, menu, callback: example5MenuCallback);
+  }
+
+  private static MenuValue formatValue(string head, string tail) {
+    List<MenuObject> value = [
+      new($"{head} ", new MenuFormat(Color.Blue, MenuStyle.BOLD)),
+      new(tail, new MenuFormat(Color.Red, MenuStyle.BOLD))
     ];
 
-    private void Example5Menu(CCSPlayerController? player, CommandInfo info)
-    {
-        if (player is null || !player.IsValid)
-        {
-            return;
-        }
+    return value;
+  }
 
-        MenuOptions options = new() { BlockMovement = true, DisplayItemsInHeader = false };
-        MenuBase menu = new(header: new("header"), footer: new("footer"), options: options);
+  private void example5MenuCallback(MenuBase menu, MenuAction menuAction) {
+    var player = menu.Player;
 
-        List<MenuValue> values = [];
+    switch (menuAction) {
+      case MenuAction.START:
+        player.PrintToChat("Menu Start");
+        break;
 
-        foreach ((string head, string tail, int data) in _example5Data)
-        {
-            MenuValue value = FormatValue(head, tail);
-            value.Data = data;
+      case MenuAction.EXIT:
+        player.PrintToChat("Menu Exit");
+        break;
 
-            values.Add(value);
-        }
-
-        menu.Items.Add(
-            new MenuItem(type: MenuItemType.Button, head: new("Select: "), values: values)
-        );
-
-        menu.Items.Add(
-            new MenuItem(
-                type: MenuItemType.Button,
-                head: new("verylonghead verylonghead", new MenuFormat(color: Color.Blue)),
-                tail: new(" short tail", new MenuFormat(color: Color.Red)),
-                options: new MenuItemOptions() { Trim = MenuTrim.Head }
-            )
-        );
-
-        menu.Items.Add(
-            new MenuItem(
-                type: MenuItemType.Button,
-                head: new("short head", new MenuFormat(color: Color.Blue)),
-                tail: new(" verylongtail verylongtail", new MenuFormat(color: Color.Red)),
-                options: new MenuItemOptions() { Trim = MenuTrim.Tail }
-            )
-        );
-
-        Menu.Display(player, menu, callback: Example5MenuCallback);
+      case MenuAction.SELECT:
+        Menu.Clear(player);
+        break;
     }
-
-    private static MenuValue FormatValue(string head, string tail)
-    {
-        List<MenuObject> value =
-        [
-            new($"{head} ", new MenuFormat(color: Color.Blue, style: MenuStyle.Bold)),
-            new(tail, new MenuFormat(color: Color.Red, style: MenuStyle.Bold)),
-        ];
-
-        return value;
-    }
-
-    private void Example5MenuCallback(MenuBase menu, MenuAction menuAction)
-    {
-        CCSPlayerController player = menu.Player;
-
-        switch (menuAction)
-        {
-            case MenuAction.Start:
-                player.PrintToChat("Menu Start");
-                break;
-
-            case MenuAction.Exit:
-                player.PrintToChat("Menu Exit");
-                break;
-
-            case MenuAction.Select:
-                Menu.Clear(player);
-                break;
-        }
-    }
+  }
 }

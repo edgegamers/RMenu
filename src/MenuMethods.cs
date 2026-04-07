@@ -5,176 +5,126 @@ using RMenu.Models;
 
 namespace RMenu;
 
-public static partial class Menu
-{
-    private static readonly MenuButton[] _menuButtons = Enum.GetValues<MenuButton>();
+public static partial class Menu {
+  private static readonly MenuButton[] MENU_BUTTONS =
+    Enum.GetValues<MenuButton>();
 
-    public static void Display(
-        CCSPlayerController player,
-        MenuBase menu,
-        bool subMenu = false,
-        Action<MenuBase, MenuAction>? callback = null
-    )
-    {
-        menu.Player = player;
-        menu.Callback = callback;
+  public static void Display(CCSPlayerController player, MenuBase menu,
+    bool subMenu = false, Action<MenuBase, MenuAction>? callback = null) {
+    menu.Player   = player;
+    menu.Callback = callback;
 
-        for (int i = 0; i < menu.Items.Count; i++)
-        {
-            MenuItem menuItem = menu.Items[i];
+    for (var i = 0; i < menu.Items.Count; i++) {
+      var menuItem = menu.Items[i];
 
-            if (menu.SelectedItem is null && IsSelectable(menuItem))
-            {
-                menu.SelectedItem = new MenuSelectedItem(i, menuItem);
-            }
+      if (menu.SelectedItem is null && isSelectable(menuItem))
+        menu.SelectedItem = new MenuSelectedItem(i, menuItem);
 
-            menuItem.Callback?.Invoke(menu, menuItem, MenuAction.Start);
-        }
-
-        menu.Callback?.Invoke(menu, MenuAction.Start);
-
-        if (GetData(player.Slot) is not { } menuData)
-        {
-            menuData = new(player);
-            _menuData[player.Slot] = menuData;
-        }
-
-        if (subMenu && menuData.Menus.Count > 0 && menuData.Menus[0].Count > 0)
-        {
-            MenuOptions options = new(menuData.Menus[0][^1].Options);
-            options.Merge(menu.Options);
-
-            menu.Options = options;
-            menuData.Menus[0].Add(menu);
-        }
-        else
-        {
-            List<MenuBase> menuStack = [menu];
-
-            bool isInsert =
-                !subMenu
-                && Get(player) is { } parent
-                && (menu.Options.Priority >= parent.Options.Priority || !parent.Options.Exitable);
-
-            if (isInsert)
-            {
-                menuData.Menus.Insert(0, menuStack);
-            }
-            else
-            {
-                menuData.Menus.Add(menuStack);
-            }
-        }
-
-        menuData.Update();
+      menuItem.Callback?.Invoke(menu, menuItem, MenuAction.START);
     }
 
-    public static MenuBase? Get(CCSPlayerController player)
-    {
-        if (GetData(player.Slot) is not { } menuData)
-        {
-            return null;
-        }
+    menu.Callback?.Invoke(menu, MenuAction.START);
 
-        if (menuData.Menus.Count == 0 || menuData.Menus[0].Count == 0)
-        {
-            return null;
-        }
-
-        return menuData.Menus[0][^1];
+    if (getData(player.Slot) is not { } menuData) {
+      menuData               = new MenuData(player);
+      MENU_DATA[player.Slot] = menuData;
     }
 
-    public static bool Close(CCSPlayerController player)
-    {
-        if (GetData(player.Slot) is not { } menuData)
-        {
-            return false;
-        }
+    if (subMenu && menuData.Menus.Count > 0 && menuData.Menus[0].Count > 0) {
+      MenuOptions options = new(menuData.Menus[0][^1].Options);
+      options.merge(menu.Options);
 
-        if (menuData.Menus.Count == 0 || menuData.Menus[0].Count < 2)
-        {
-            return false;
-        }
+      menu.Options = options;
+      menuData.Menus[0].Add(menu);
+    } else {
+      List<MenuBase> menuStack = [menu];
 
-        menuData.Menus[0].RemoveAt(menuData.Menus[0].Count - 1);
-        menuData.Update();
-        return true;
+      var isInsert = !subMenu && Get(player) is { } parent
+        && (menu.Options.Priority >= parent.Options.Priority
+          || !parent.Options.Exitable);
+
+      if (isInsert)
+        menuData.Menus.Insert(0, menuStack);
+      else
+        menuData.Menus.Add(menuStack);
     }
 
-    public static void Clear(CCSPlayerController player, bool force = false)
-    {
-        if (GetData(player.Slot) is not { } menuData)
-        {
-            return;
-        }
+    menuData.Update();
+  }
 
-        for (int i = menuData.Menus.Count; i > 0; i--)
-        {
-            List<MenuBase> menuStack = menuData.Menus[i - 1];
+  public static MenuBase? Get(CCSPlayerController player) {
+    if (getData(player.Slot) is not { } menuData) return null;
 
-            if (menuStack.Count != 0 && !menuStack[^1].Options.Exitable && !force)
-            {
-                continue;
-            }
+    if (menuData.Menus.Count == 0 || menuData.Menus[0].Count == 0) return null;
 
-            menuData.Menus.RemoveAt(i - 1);
-        }
+    return menuData.Menus[0][^1];
+  }
 
-        menuData.Update();
+  public static bool Close(CCSPlayerController player) {
+    if (getData(player.Slot) is not { } menuData) return false;
+
+    if (menuData.Menus.Count == 0 || menuData.Menus[0].Count < 2) return false;
+
+    menuData.Menus[0].RemoveAt(menuData.Menus[0].Count - 1);
+    menuData.Update();
+    return true;
+  }
+
+  public static void Clear(CCSPlayerController player, bool force = false) {
+    if (getData(player.Slot) is not { } menuData) return;
+
+    for (var i = menuData.Menus.Count; i > 0; i--) {
+      var menuStack = menuData.Menus[i - 1];
+
+      if (menuStack.Count != 0 && !menuStack[^1].Options.Exitable && !force)
+        continue;
+
+      menuData.Menus.RemoveAt(i - 1);
     }
 
-    internal static void Input(CCSPlayerController player, MenuBase menu, PlayerButtons buttons)
-    {
-        if (GetData(player.Slot) is not { } menuData)
-        {
-            return;
-        }
+    menuData.Update();
+  }
 
-        if (menuData.Menus.Count == 0 || menuData.Menus[0].Count == 0)
-        {
-            return;
-        }
+  internal static void input(CCSPlayerController player, MenuBase menu,
+    PlayerButtons buttons) {
+    if (getData(player.Slot) is not { } menuData) return;
 
-        for (int i = 0; i < _menuButtons.Length; i++)
-        {
-            MenuButton button = _menuButtons[i];
-            PlayerButtons buttonMask = menu.Options.Buttons[button];
+    if (menuData.Menus.Count == 0 || menuData.Menus[0].Count == 0) return;
 
-            if (buttonMask == 0)
-            {
-                continue;
-            }
+    for (var i = 0; i < MENU_BUTTONS.Length; i++) {
+      var button     = MENU_BUTTONS[i];
+      var buttonMask = menu.Options.Buttons[button];
 
-            bool isPressed = (buttons & buttonMask) != 0;
+      if (buttonMask == 0) continue;
 
-            int continuousDelay =
-                menu.SelectedItem?.Item.Options.Continuous?[button]
-                ?? menu.Options.Continuous[button];
+      var isPressed = (buttons & buttonMask) != 0;
 
-            if (!isPressed)
-            {
-                menuData._lastInput[i] = 0;
-                continue;
-            }
+      var continuousDelay = menu.SelectedItem?.Item.Options.Continuous?[button]
+        ?? menu.Options.Continuous[button];
 
-            if (
-                continuousDelay == 0
-                    ? menuData._lastInput[i] != 0
-                    : menuData._lastInput[i] + continuousDelay > Environment.TickCount64
-            )
-            {
-                continue;
-            }
+      if (!isPressed) {
+        menuData.LastInput[i] = 0;
+        continue;
+      }
 
-            menuData._lastInput[i] = Environment.TickCount64;
-            menu.Input(button);
-        }
+      if (continuousDelay == 0 ?
+        menuData.LastInput[i] != 0 :
+        menuData.LastInput[i] + continuousDelay > Environment.TickCount64)
+        continue;
+
+      menuData.LastInput[i] = Environment.TickCount64;
+      menu.input(button);
     }
+  }
 
-    internal static void Remove(int playerSlot) => _menuData[playerSlot] = null;
+  internal static void remove(int playerSlot) { MENU_DATA[playerSlot] = null; }
 
-    internal static MenuData? GetData(int playerSlot) => _menuData[playerSlot];
+  internal static MenuData? getData(int playerSlot) {
+    return MENU_DATA[playerSlot];
+  }
 
-    internal static bool IsSelectable(MenuItem menuItem) =>
-        menuItem.Type is MenuItemType.Choice or MenuItemType.Button or MenuItemType.Input;
+  internal static bool isSelectable(MenuItem menuItem) {
+    return menuItem.Type is MenuItemType.CHOICE or MenuItemType.BUTTON
+      or MenuItemType.INPUT;
+  }
 }

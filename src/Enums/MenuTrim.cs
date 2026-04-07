@@ -1,8 +1,5 @@
 namespace RMenu.Enums;
 
-public enum MenuTrim
-{
-    None,
-    Head,
-    Tail,
+public enum MenuTrim {
+  NONE, HEAD, TAIL
 }

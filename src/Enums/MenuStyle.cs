@@ -1,9 +1,5 @@
 namespace RMenu.Enums;
 
-public enum MenuStyle
-{
-    None,
-    Bold,
-    Italic,
-    Mono,
+public enum MenuStyle {
+  NONE, BOLD, ITALIC, MONO
 }

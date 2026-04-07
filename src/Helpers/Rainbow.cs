@@ -4,118 +4,93 @@ using RMenu.Extensions;
 
 namespace RMenu.Helpers;
 
-internal static class Rainbow
-{
-    internal const int HUE_MAX = 360;
-    internal const double HUE_BYTE = HUE_MAX / 255.0;
-    internal const double HUE_INCREMENT = 5;
+internal static class Rainbow {
+  private const int HUE_MAX = 360;
+  internal const double HUE_BYTE = HUE_MAX / 255.0;
+  private const double HUE_INCREMENT = 5;
 
-    private static readonly Color[] _hue = new Color[HUE_MAX];
+  private static readonly Color[] HUE = new Color[HUE_MAX];
 
-    private static double _currentHue;
+  private static double _currentHue;
 
-    static Rainbow()
-    {
-        for (int i = 0; i < HUE_MAX; i++)
-        {
-            _hue[i] = ComputeColor(i);
-        }
-    }
+  static Rainbow() {
+    for (var i = 0; i < HUE_MAX; i++) HUE[i] = computeColor(i);
+  }
 
-    public static Color CurrentColor { get; private set; }
+  public static Color CurrentColor { get; private set; }
 
-    public static void Update()
-    {
-        _currentHue = (_currentHue + HUE_INCREMENT + HUE_MAX) % HUE_MAX;
-        CurrentColor = GetColorFromHue(_currentHue);
-    }
+  public static void Update() {
+    _currentHue  = (_currentHue + HUE_INCREMENT + HUE_MAX) % HUE_MAX;
+    CurrentColor = getColorFromHue(_currentHue);
+  }
 
-    public static void Strobe(
-        StringBuilder stringBuilder,
-        string text,
-        MenuFormat format,
-        bool isReversed = false
-    )
-    {
-        byte startHue = format.Color.R;
-        byte endHue = format.Color.G;
-        byte hueDelta = format.Color.B;
+  public static void Strobe(StringBuilder stringBuilder, string text,
+    MenuFormat format, bool isReversed = false) {
+    var startHue = format.Color.R;
+    var endHue   = format.Color.G;
+    var hueDelta = format.Color.B;
 
-        int step = text.Length > 1 ? hueDelta / (text.Length - 1) : hueDelta;
+    var step = text.Length > 1 ? hueDelta / (text.Length - 1) : hueDelta;
 
-        if (isReversed)
-        {
-            step = -step;
-        }
+    if (isReversed) step = -step;
 
-        _ = stringBuilder.Append($"<font class=\"{format.Style.Value()}\">");
+    _ = stringBuilder.Append($"<font class=\"{format.Style.Value()}\">");
 
-        for (int i = 0; i < text.Length; i++)
-        {
-            int offset = i * step;
-            double strobeHue = (_currentHue + offset + HUE_MAX) % HUE_MAX;
+    for (var i = 0; i < text.Length; i++) {
+      var offset    = i * step;
+      var strobeHue = (_currentHue + offset + HUE_MAX) % HUE_MAX;
 
-            if (startHue != 0 || endHue != 255)
-            {
-                double startHue360 = startHue * HUE_BYTE;
-                double endHue360 = endHue * HUE_BYTE;
+      if (startHue != 0 || endHue != 255) {
+        var startHue360 = startHue * HUE_BYTE;
+        var endHue360   = endHue * HUE_BYTE;
 
-                double phase = strobeHue / HUE_MAX * 2.0;
-                double pingPong = phase <= 1.0 ? phase : 2.0 - phase;
+        var phase    = strobeHue / HUE_MAX * 2.0;
+        var pingPong = phase <= 1.0 ? phase : 2.0 - phase;
 
-                if (Math.Abs(endHue360 - startHue360) > HUE_MAX / 2)
-                {
-                    if (startHue360 > endHue360)
-                    {
-                        endHue360 += HUE_MAX;
-                    }
-                    else
-                    {
-                        startHue360 += HUE_MAX;
-                    }
-                }
-
-                strobeHue = startHue360 + (pingPong * (endHue360 - startHue360));
-                strobeHue %= HUE_MAX;
-
-                if (strobeHue < 0)
-                {
-                    strobeHue += HUE_MAX;
-                }
-            }
-
-            Color color = GetColorFromHue(strobeHue);
-
-            _ = stringBuilder.Append(
-                $"<font color=\"#{color.R:X2}{color.G:X2}{color.B:X2}\">{text[i]}</font>"
-            );
+        if (Math.Abs(endHue360 - startHue360) > 180) {
+          if (startHue360 > endHue360)
+            endHue360 += HUE_MAX;
+          else
+            startHue360 += HUE_MAX;
         }
 
-        _ = stringBuilder.Append($"</font>");
+        strobeHue =  startHue360 + pingPong * (endHue360 - startHue360);
+        strobeHue %= HUE_MAX;
+
+        if (strobeHue < 0) strobeHue += HUE_MAX;
+      }
+
+      var color = getColorFromHue(strobeHue);
+
+      _ = stringBuilder.Append(
+        $"<font color=\"#{color.R:X2}{color.G:X2}{color.B:X2}\">{text[i]}</font>");
     }
 
-    private static Color ComputeColor(double hue)
-    {
-        double h = hue / 60.0;
-        int segment = (int)h;
-        double fraction = h - segment;
-        segment %= 6;
+    _ = stringBuilder.Append("</font>");
+  }
 
-        int v = 255;
-        int p = 0;
-        int q = (int)((v * (1.0 - fraction)) + 0.5);
-        int t = (int)((v * fraction) + 0.5);
+  private static Color computeColor(double hue) {
+    var h        = hue / 60.0;
+    var segment  = (int)h;
+    var fraction = h - segment;
+    segment %= 6;
 
-        return segment switch
-        {
-            0 => Color.FromArgb(v, t, p),
-            1 => Color.FromArgb(q, v, p),
-            2 => Color.FromArgb(p, v, t),
-            3 => Color.FromArgb(p, q, v),
-            4 => Color.FromArgb(t, p, v),
-            _ => Color.FromArgb(v, p, q),
-        };
-    }
+    var v = 255;
+    var p = 0;
+    var q = (int)(v * (1.0 - fraction) + 0.5);
+    var t = (int)(v * fraction + 0.5);
 
-    private static Color GetColorFromHue(double hue) => _hue[((int)hue + HUE_MAX) % HUE_MAX];
+    return segment switch {
+      0 => Color.FromArgb(v, t, p),
+      1 => Color.FromArgb(q, v, p),
+      2 => Color.FromArgb(p, v, t),
+      3 => Color.FromArgb(p, q, v),
+      4 => Color.FromArgb(t, p, v),
+      _ => Color.FromArgb(v, p, q)
+    };
+  }
+
+  private static Color getColorFromHue(double hue) {
+    return HUE[((int)hue + HUE_MAX) % HUE_MAX];
+  }
 }

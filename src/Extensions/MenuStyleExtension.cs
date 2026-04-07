@@ -2,15 +2,14 @@ using RMenu.Enums;
 
 namespace RMenu.Extensions;
 
-public static class MenuStyleExtension
-{
-    public static string Value(this MenuStyle style) =>
-        style switch
-        {
-            MenuStyle.None => "stratum",
-            MenuStyle.Bold => "stratum-bold",
-            MenuStyle.Italic => "stratum-bold-italic",
-            MenuStyle.Mono => "stratum-bold-mono",
-            _ => string.Empty,
-        };
+public static class MenuStyleExtension {
+  public static string Value(this MenuStyle style) {
+    return style switch {
+      MenuStyle.NONE   => "stratum",
+      MenuStyle.BOLD   => "stratum-bold",
+      MenuStyle.ITALIC => "stratum-bold-italic",
+      MenuStyle.MONO   => "stratum-bold-mono",
+      _                => string.Empty
+    };
+  }
 }

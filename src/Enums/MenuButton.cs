@@ -1,13 +1,12 @@
 namespace RMenu.Enums;
 
-public enum MenuButton
-{
-    Up,
-    Down,
-    Left,
-    Right,
-    Select,
-    Back,
-    Exit,
-    Assist,
+public enum MenuButton {
+  UP,
+  DOWN,
+  LEFT,
+  RIGHT,
+  SELECT,
+  BACK,
+  EXIT,
+  ASSIST
 }
