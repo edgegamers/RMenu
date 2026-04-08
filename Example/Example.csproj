@@ -7,6 +7,6 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="CounterStrikeSharp.API" Version="*"/>
-        <ProjectReference Include="..\src\RMenu.csproj"/>
+        <PackageReference Include="RMenu" Version="1.1.0" />
     </ItemGroup>
 </Project>
